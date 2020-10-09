@@ -5,11 +5,13 @@ import sys
 
 ieee = {}  # Dictionary s info o aky typ IEEE ide
 ethernet = {}  # Dictionary s info o aky typ Ethernetu ide
+ip4v = {}   # Dictionary s info o aky protokol v IPv4 ide
 
 
 def load_dictionaries():  # Načítanie zo súboru ethernet a ieee typov
     global ieee
     global ethernet
+    global ip4v
     file = open("eth_ieee.txt", "r")
     for line in file:
         arr = line.split(":")
@@ -17,6 +19,11 @@ def load_dictionaries():  # Načítanie zo súboru ethernet a ieee typov
             ethernet[int(arr[0])] = arr[1]
         elif int(arr[0]) < 256:
             ieee[int(arr[0])] = arr[1]
+    file.close()
+    file = open("ipv4_protocols.txt", "r")
+    for line in file:
+        arr = line.split(":")
+        ip4v[int(arr[0])] = arr[1]
     file.close()
 
 
@@ -52,14 +59,14 @@ def type_of_packet(pkt):  # Zistenie typu protokola
 
 
 def mac_addresses(pkt):  # Vypísanie MAC adries paketu
-    print("Cieľová MAC adresa: ", end='')
-    for i in range(0, 12):
+    print("Zdrojová MAC adresa: ", end='')
+    for i in range(12, 24):
         if i % 2 == 0:
             print(" ", end='')
         print(str(hexlify(bytes(pkt))[i: i + 1])[2: -1].upper(), end='')
 
-    print("\nZdrojová MAC adresa: ", end='')
-    for i in range(12, 24):
+    print("\nCieľová MAC adresa: ", end='')
+    for i in range(0, 12):
         if i % 2 == 0:
             print(" ", end='')
         print(str(hexlify(bytes(pkt))[i: i + 1])[2: -1].upper(), end='')
@@ -68,8 +75,11 @@ def mac_addresses(pkt):  # Vypísanie MAC adries paketu
 
 
 def print_IPv4(pkt):  # Vypísanie IP adries pre IPv4 protokol a protokol v ňom
+    global ip4v
     print("zdrojová IP adresa: {}.{}.{}.{}".format(bytes(pkt)[26], bytes(pkt)[27], bytes(pkt)[28], bytes(pkt)[29]))
     print("cieľová IP adresa: {}.{}.{}.{}".format(bytes(pkt)[30], bytes(pkt)[31], bytes(pkt)[32], bytes(pkt)[33]))
+    if int(str(hexlify(bytes(pkt))[46: 48])[2: -1], 16) in ip4v.keys():
+        print(ip4v.get(int(str(hexlify(bytes(pkt))[46: 48])[2: -1], 16)), end='')
 
 
 def ethertype(pkt):  # Zistí ethertype ethernetu
@@ -94,8 +104,6 @@ def ieee_type(pkt):  # Zistí SAP ieee
     global ieee
     if int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16) in ieee.keys():
         print(ieee.get(int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16)), end='')
-    elif int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16) == 170:
-        print("IPX")
     else:
         print("Unknown type of IEEE", end='')
 
@@ -106,6 +114,8 @@ def inner_protocol(pkt):  # Zistí vnútorný protokol
     if int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16) > 1500:
         ethertype(pkt)
     elif str(hexlify(bytes(pkt))[28: 32])[2: -1] == "ffff":
+        print("IPX")
+    elif str(hexlify(bytes(pkt))[28: 30])[2: -1] == "aa":
         snap_type(pkt)
     elif int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16) < 256:
         ieee_type(pkt)
@@ -144,7 +154,7 @@ def print_info(pkt):    # Vypíše informácie o jednom pakete
 def first(raw_data):
     counter = 1
     for pkt in raw_data:
-        if counter > 8:
+        if counter > 12:
             break
         print("\n\nRamec", counter)
         print_info(pkt)
