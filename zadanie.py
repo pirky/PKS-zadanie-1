@@ -5,7 +5,22 @@ import sys
 
 ieee = {}  # Dictionary s info o aky typ IEEE ide
 ethernet = {}  # Dictionary s info o aky typ Ethernetu ide
-ipv4 = {}   # Dictionary s info o aky protokol v IPv4 ide
+ipv4 = {}  # Dictionary s info o aky protokol v IPv4 ide
+tcp_ports = {}  # Dictionary s info o aky well-known tcp port ide
+
+
+class Structure:
+    def __init__(self, complete, sip, sport, dip, dport):
+        self.complete = complete
+        self.sip = sip
+        self.sport = sport
+        self.dip = dip
+        self.dport = dport
+        self.arr_coms = []
+
+    def add_pkt(self, number):
+        self.arr_coms.append(number)
+
 
 
 def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 protokolov
@@ -24,6 +39,10 @@ def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 p
     for line in file:
         arr = line.split(":")
         ipv4[int(arr[0])] = arr[1]
+    file = open("tcp.txt", "r")
+    for line in file:
+        arr = line.split(":")
+        tcp_ports[arr[0]] = arr[1][:-1]
     file.close()
 
 
@@ -142,7 +161,7 @@ def list_of_IP(all_addresses):  # Vypíše všetky jedinečné IP adresy
                                             bytes(most_used)[3], all_addresses[most_used]))
 
 
-def print_info(pkt, all_addresses):    # Vypíše informácie o jednom pakete
+def print_info(pkt, all_addresses):  # Vypíše informácie o jednom pakete
     lengths(pkt)
     type_of_packet(pkt)
     mac_addresses(pkt)
@@ -151,29 +170,97 @@ def print_info(pkt, all_addresses):    # Vypíše informácie o jednom pakete
     return all_addresses
 
 
-def first(raw_data):
+def all_packets(raw_data):  # Vypíše všetky údaje potrebné pre 1., 2. a 3. bod zadania
     counter = 1
     all_addresses = {}
     for pkt in raw_data:
-        # if counter > 12:
-        #    break
+        if counter > 12:
+            break
         print("\n\nRámec", counter)
         all_addresses = print_info(pkt, all_addresses)
         counter += 1
     list_of_IP(all_addresses)
 
 
+def tcp_sorting(raw_data, spec_packets):
+    uniq_tcp = []
+    for i in range(len(spec_packets)):
+        if i == 22:
+            print("brejkpojnt")
+        ihl = int(str(hexlify(bytes(raw_data[spec_packets[i]]))[29:30])[2: -1]) * 8
+        sip = hexlify(bytes(raw_data[spec_packets[i]]))[52: 60]
+        sport = hexlify(bytes(raw_data[spec_packets[i]]))[28 + ihl: 32 + ihl]
+        dip = hexlify(bytes(raw_data[spec_packets[i]]))[60: 68]
+        dport = hexlify(bytes(raw_data[spec_packets[i]]))[32 + ihl: 36 + ihl]
+        if len(uniq_tcp) == 0:
+            pkt = Structure(0, sip, sport, dip, dport)
+            uniq_tcp.append(pkt)
+            pkt.add_pkt(spec_packets[i])
+        else:
+            counter = 0
+            new = 1
+            for structure in uniq_tcp:
+                if (sip == structure.sip and sport == structure.sport and dip == structure.dip and
+                    dport == structure.dport) or (sip == structure.dip and sport == structure.dport
+                                                  and dip == structure.sip and dport == structure.sport):
+                    uniq_tcp[counter].arr_coms.append(spec_packets[i])
+                    new = 0
+                    break
+                counter += 1
+            if new == 1:
+                pkt = Structure(0, sip, sport, dip, dport)
+                uniq_tcp.append(pkt)
+                pkt.add_pkt(spec_packets[i])
+    print(len(uniq_tcp))
+
+
+def tcp(raw_data, protocol):
+    global tcp_ports
+    spec_packets = []
+    position = 0
+    for pkt in raw_data:
+        ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1]) * 8
+        if str(hexlify(bytes(pkt))[24: 28])[2: -1] == "0800" and str(hexlify(bytes(pkt))[46: 48])[2: -1] == "06" \
+                and (str(hexlify(bytes(pkt))[28 + ihl: 32 + ihl])[2: -1] == tcp_ports[protocol]
+                     or str(hexlify(bytes(pkt))[32 + ihl: 36 + ihl])[2: -1] == tcp_ports[protocol]):
+            spec_packets.append(position)
+        position += 1
+    tcp_sorting(raw_data, spec_packets)
+
+
 def start():
     load_dictionaries()
     # path_file = input("Zadaj cestu k .pcap súboru: ")
-    path_file = "vzorky_pcap_na_analyzu/trace-20.pcap"
+    path_file = "vzorky_pcap_na_analyzu/eth-2.pcap"
+    raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
     command = 1
     # command = int(input("Stlač:\t1 pre výstup do konzoly\n\t\t2 pre výstup do súboru\n"))
     if command == 2:
         sys.stdout = file_out
-    raw_data = rdpcap(path_file)
-    first(raw_data)
+    #    print("""Pre daný výpis napíš:
+    #    all - pre zobrazenie všetkých rámcov a jedinečných IP adries
+    #    http - pre výpis HTTP komunikácie
+    #    https - pre výpis HTTPS komunikácie
+    #    telnet - pre výpis TELNET komunikácie
+    #    ssh - pre výpis SSH komunikácie
+    #    ftp-control - pre výpis FTP riadiace komunikácie
+    #    ftp-data - pre výpis FTP dátové komunikácie
+    #    tftp - pre výpis TFTP komunikácie
+    #    icmp - pre výpis ICMP komunikácie
+    #    arp - pre výpis ARP dvojíc komunikácie""")
+    #    option = input()
+    option = "http"
+    if option == "all":
+        all_packets(raw_data)
+    elif option == "tftp":
+        print("tftp")
+    elif option == "icmp":
+        print("icmp")
+    elif option == "arp":
+        print("arp")
+    else:
+        tcp(raw_data, option)
     file_out.close()
 
 
