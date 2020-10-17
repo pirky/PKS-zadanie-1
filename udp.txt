@@ -1,0 +1,15 @@
+echo:0007
+chargen:0013
+time:0025
+domain:0035
+bootps:0043
+bootpc:0044
+tftp:0045
+netbios-ns:0089
+netbios-dgm:008a
+snmp:00a1
+snmp-trap:00a2
+isakmp:01F4
+syslog:0202
+rip:0208
+traceroute:829a
