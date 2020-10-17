@@ -9,7 +9,7 @@ ipv4 = {}  # Dictionary s info o aky protokol v IPv4 ide
 tcp_ports = {}  # Dictionary s info o aky well-known tcp port ide
 
 
-class Structure:
+class Structure:    # complete -> 0 = nekompletna, 1 = kompletna, 2 = bez zaciatku
     def __init__(self, complete, sip, sport, dip, dport):
         self.complete = complete
         self.sip = sip
@@ -20,7 +20,6 @@ class Structure:
 
     def add_pkt(self, number):
         self.arr_coms.append(number)
-
 
 
 def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 protokolov
@@ -182,36 +181,79 @@ def all_packets(raw_data):  # Vypíše všetky údaje potrebné pre 1., 2. a 3. 
     list_of_IP(all_addresses)
 
 
-def tcp_sorting(raw_data, spec_packets):
-    uniq_tcp = []
+def tcp_print(raw_data, comms):
+    print()
+
+
+def flag_function(raw_data, comm, number):
+    ihl = int(str(hexlify(bytes(raw_data[comm.arr_coms[number]]))[29:30])[2: -1]) * 4
+    return bytes(raw_data[comm.arr_coms[number]])[27 + ihl]
+
+
+def tcp_comms(raw_data, comms):
+    counter = -1
+    for comm in comms:
+        counter += 1
+        if len(comm.arr_coms) < 3:
+            continue
+
+        flag1 = flag_function(raw_data, comm, 0)
+        flag2 = flag_function(raw_data, comm, 1)
+        flag3 = flag_function(raw_data, comm, 2)
+        if flag1 == 2 and flag2 == 18 and flag3 == 16:   # 3-way SYN handshake
+            print("Komunikacia ", counter)
+            comm.complete = 0
+            print("ma zaciatok")
+        else:
+            continue
+
+        flag = flag_function(raw_data, comm, -1)
+        if flag == 4 or flag == 20:   # RST ukoncenie, RST+ACK
+            comm.complete = 1
+            print("ma RST koniec")
+            continue
+
+        flag1 = flag_function(raw_data, comm, -4)
+        flag2 = flag_function(raw_data, comm, -3)
+        flag3 = flag_function(raw_data, comm, -2)
+        flag4 = flag_function(raw_data, comm, -1)
+        if flag1 == 17 and flag2 == 16 and flag3 == 17 and flag4 == 16:  # 4-way FIN
+            comm.complete = 1
+            print("ma 4-way FIN")
+            continue
+        if flag2 == 17 and flag3 == 17 and flag4 == 16:  # 3-way FIN
+            comm.complete = 1
+            print("ma 3-way FIN")
+
+
+def tcp_together(raw_data, spec_packets):
+    comms = []
     for i in range(len(spec_packets)):
-        if i == 22:
-            print("brejkpojnt")
         ihl = int(str(hexlify(bytes(raw_data[spec_packets[i]]))[29:30])[2: -1]) * 8
         sip = hexlify(bytes(raw_data[spec_packets[i]]))[52: 60]
         sport = hexlify(bytes(raw_data[spec_packets[i]]))[28 + ihl: 32 + ihl]
         dip = hexlify(bytes(raw_data[spec_packets[i]]))[60: 68]
         dport = hexlify(bytes(raw_data[spec_packets[i]]))[32 + ihl: 36 + ihl]
-        if len(uniq_tcp) == 0:
+        if len(comms) == 0:
             pkt = Structure(0, sip, sport, dip, dport)
-            uniq_tcp.append(pkt)
+            comms.append(pkt)
             pkt.add_pkt(spec_packets[i])
         else:
             counter = 0
             new = 1
-            for structure in uniq_tcp:
+            for structure in comms:
                 if (sip == structure.sip and sport == structure.sport and dip == structure.dip and
                     dport == structure.dport) or (sip == structure.dip and sport == structure.dport
                                                   and dip == structure.sip and dport == structure.sport):
-                    uniq_tcp[counter].arr_coms.append(spec_packets[i])
+                    comms[counter].arr_coms.append(spec_packets[i])
                     new = 0
                     break
                 counter += 1
             if new == 1:
-                pkt = Structure(0, sip, sport, dip, dport)
-                uniq_tcp.append(pkt)
+                pkt = Structure(2, sip, sport, dip, dport)
+                comms.append(pkt)
                 pkt.add_pkt(spec_packets[i])
-    print(len(uniq_tcp))
+    tcp_comms(raw_data, comms)
 
 
 def tcp(raw_data, protocol):
@@ -219,19 +261,19 @@ def tcp(raw_data, protocol):
     spec_packets = []
     position = 0
     for pkt in raw_data:
-        ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1]) * 8
+        ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
         if str(hexlify(bytes(pkt))[24: 28])[2: -1] == "0800" and str(hexlify(bytes(pkt))[46: 48])[2: -1] == "06" \
                 and (str(hexlify(bytes(pkt))[28 + ihl: 32 + ihl])[2: -1] == tcp_ports[protocol]
                      or str(hexlify(bytes(pkt))[32 + ihl: 36 + ihl])[2: -1] == tcp_ports[protocol]):
             spec_packets.append(position)
         position += 1
-    tcp_sorting(raw_data, spec_packets)
+    tcp_together(raw_data, spec_packets)
 
 
 def start():
     load_dictionaries()
     # path_file = input("Zadaj cestu k .pcap súboru: ")
-    path_file = "vzorky_pcap_na_analyzu/eth-2.pcap"
+    path_file = "vzorky_pcap_na_analyzu/trace-20.pcap"
     raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
     command = 1
