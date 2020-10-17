@@ -10,6 +10,7 @@ tcp_ports = {}  # Dictionary s info o aky well-known tcp port ide
 all_addresses = {}  # Dictionary so vsetkymi DIP adresami
 udp_ports = {}  # Dictionary s info o aky well-known udp port ide
 icmp_types = {}   # Dictionary s info o aky type ide
+arp_operation = {}  # Dictionary s info a aku operaciu v ARP ide
 
 
 class Structure:  # complete -> 0 = nekompletna, 1 = kompletna, 2 = bez zaciatku
@@ -42,18 +43,19 @@ def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 p
     global ipv4
     global udp_ports
     global icmp_types
+    global arp_operation
     file = open("eth_ieee.txt", "r")
     for line in file:
         arr = line.split(":")
         if int(arr[0]) > 1500:
-            ethernet[int(arr[0])] = arr[1]
+            ethernet[int(arr[0])] = arr[1][:-1]
         elif int(arr[0]) < 256:
-            ieee[int(arr[0])] = arr[1]
+            ieee[int(arr[0])] = arr[1][:-1]
     file.close()
     file = open("ipv4_protocols.txt", "r")
     for line in file:
         arr = line.split(":")
-        ipv4[int(arr[0])] = arr[1]
+        ipv4[int(arr[0])] = arr[1][:-1]
     file.close()
     file = open("tcp.txt", "r")
     for line in file:
@@ -69,6 +71,11 @@ def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 p
     for line in file:
         arr = line.split(":")
         icmp_types[int(arr[0])] = arr[1][:-1]
+    file.close()
+    file = open("arp.txt", "r")
+    for line in file:
+        arr = line.split(":")
+        arp_operation[int(arr[0])] = arr[1][:-1]
     file.close()
 
 
@@ -422,7 +429,7 @@ def icmp(raw_data, protocol):
 def start():
     load_dictionaries()
     # path_file = input("Zadaj cestu k .pcap súboru: ")
-    path_file = "vzorky_pcap_na_analyzu/trace-15.pcap"
+    path_file = "vzorky_pcap_na_analyzu/eth-2.pcap"
     raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
     command = 1
@@ -441,7 +448,7 @@ def start():
     #    icmp - pre výpis ICMP komunikácie
     #    arp - pre výpis ARP dvojíc komunikácie""")
     #    option = input()
-    option = "tftp"
+    option = "all"
     if option == "all":
         all_packets(raw_data)
     elif option == "tftp":
