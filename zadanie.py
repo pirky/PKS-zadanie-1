@@ -26,9 +26,10 @@ class Structure:  # complete -> 0 = nekompletna, 1 = kompletna, 2 = bez zaciatku
 
 
 class StructureTftp:
-    def __init__(self, sport, dport):
+    def __init__(self, sport, dport, end):
         self.sport = sport
         self.dport = dport
+        self.end = end
         self.arr_coms = []
 
     def add_pkt(self, number):
@@ -348,6 +349,10 @@ def tftp_print(raw_data, comms, protocol):
         print(" ------------------------"
               "\n     Komunikácia {}:\n".format(position),
               "------------------------")
+        if comm.end == "error":
+            print("Komunikácia skončila errorom.\n")
+        elif comm.end == "normal":
+            print("Komunikácia skončila normálne, bez erroru.\n")
         if len(comm.arr_coms) > 20:
             print("\nVýpis v skrátenej forme iba prvých 10 a posledných 10 rámcov\n")
         counter = 0
@@ -382,13 +387,14 @@ def tftp(raw_data, protocol):
                     first = 0
                 elif opcode == 5:
                     running_comm = 0
+                    comms[-1].end = "error"
                 elif opcode == 3 and comm_length > length:
                     running_comm = 2
             elif running_comm == 2:
                 comms[-1].add_pkt(position)
                 running_comm = 0
             elif str(hexlify(bytes(pkt))[32 + ihl: 36 + ihl])[2: -1] == udp_ports[protocol]:
-                comms.append(StructureTftp(sport, dport))
+                comms.append(StructureTftp(sport, dport, "normal"))
                 comms[-1].add_pkt(position)
                 running_comm = 1
         position += 1
@@ -435,7 +441,7 @@ def start():
     #    icmp - pre výpis ICMP komunikácie
     #    arp - pre výpis ARP dvojíc komunikácie""")
     #    option = input()
-    option = "icmp"
+    option = "tftp"
     if option == "all":
         all_packets(raw_data)
     elif option == "tftp":
