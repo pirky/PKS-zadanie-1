@@ -404,9 +404,8 @@ def icmp(raw_data, protocol):
             lengths(pkt)
             type_of_packet(pkt)
             mac_addresses(pkt)
-            inner_protocol(pkt)
             ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1]) * 8
-            print(protocol.upper(), " -> ", icmp_types[bytes(pkt)[14 + int(ihl/2)]])
+            print(protocol.upper(), "->", icmp_types[bytes(pkt)[14 + int(ihl/2)]])
             print("zdrojový port: ", int(hexlify(bytes(pkt))[28 + ihl: 32 + ihl], 16))
             print("cieľový port: ", int(hexlify(bytes(pkt))[32 + ihl: 36 + ihl], 16))
             printing_packet(pkt)
@@ -436,7 +435,7 @@ def start():
     #    icmp - pre výpis ICMP komunikácie
     #    arp - pre výpis ARP dvojíc komunikácie""")
     #    option = input()
-    option = "tftp"
+    option = "icmp"
     if option == "all":
         all_packets(raw_data)
     elif option == "tftp":
