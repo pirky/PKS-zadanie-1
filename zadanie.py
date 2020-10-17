@@ -13,6 +13,7 @@ icmp_types = {}   # Dictionary s info o aky type ide
 arp_operation = {}  # Dictionary s info a aku operaciu v ARP ide
 
 
+# Trieda s informáciami potrebnými pre analýzu komunikácie TCP protokolov
 class Structure:  # complete -> 0 = nekompletna, 1 = kompletna, 2 = bez zaciatku
     def __init__(self, complete, sip, sport, dip, dport):
         self.complete = complete
@@ -26,6 +27,7 @@ class Structure:  # complete -> 0 = nekompletna, 1 = kompletna, 2 = bez zaciatku
         self.arr_coms.append(number)
 
 
+# Trieda s informáciami potrebnými pre analýzu komunikácie TFTP
 class StructureTftp:
     def __init__(self, sport, dport, end):
         self.sport = sport
@@ -37,7 +39,8 @@ class StructureTftp:
         self.arr_coms.append(number)
 
 
-def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 protokolov
+# Načítanie zo súboru ethernet, ieee typov a ipv4 protokolov
+def load_dictionaries():
     global ieee
     global ethernet
     global ipv4
@@ -79,7 +82,8 @@ def load_dictionaries():  # Načítanie zo súboru ethernet, ieee typov a ipv4 p
     file.close()
 
 
-def printing_packet(pkt):  # Vypísanie celého protokolu po bajtoch
+# Vypísanie celého protokolu po bajtoch
+def printing_packet(pkt):
     for i in range(len(pkt) * 2):
         if i % 2 == 0:
             print(end=' ')
@@ -90,7 +94,8 @@ def printing_packet(pkt):  # Vypísanie celého protokolu po bajtoch
         print(str(hexlify(bytes(pkt))[i: i + 1])[2: -1], end='')
 
 
-def lengths(pkt):  # Vyráta dĺžku rámca pcap API, aj rámca prenášaného po médiu
+# Vyráta dĺžku rámca pcap API, aj rámca prenášaného po médiu
+def lengths(pkt):
     print("dĺžka rámca poskytnutá pcap API –", len(pkt), "B")
     if len(pkt) < 60:
         print("dĺžka rámca prenášaného po médiu – 64 B")
@@ -98,7 +103,8 @@ def lengths(pkt):  # Vyráta dĺžku rámca pcap API, aj rámca prenášaného p
         print("dĺžka rámca prenášaného po médiu –", len(pkt) + 4, "B")
 
 
-def type_of_packet(pkt):  # Zistenie typu protokola
+# Zistenie typu protokola
+def type_of_packet(pkt):
     if int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16) > 1500:
         print("Ethernet II")
     elif str(hexlify(bytes(pkt))[28: 32])[2: -1] == "ffff":
@@ -110,7 +116,8 @@ def type_of_packet(pkt):  # Zistenie typu protokola
             print("IEEE 802.3 LLC")
 
 
-def mac_addresses(pkt):  # Vypísanie MAC adries paketu
+# Vypísanie MAC adries paketu
+def mac_addresses(pkt):
     print("Zdrojová MAC adresa: ", end='')
     for i in range(12, 24):
         if i % 2 == 0:
@@ -126,7 +133,8 @@ def mac_addresses(pkt):  # Vypísanie MAC adries paketu
     print()
 
 
-def print_IPv4(pkt):  # Vypísanie IP adries pre IPv4 protokol a protokol v ňom
+# Vypísanie IP adries pre IPv4 protokol a protokol v ňom
+def print_IPv4(pkt):
     global ipv4
     global all_addresses
     print("zdrojová IP adresa: {}.{}.{}.{}".format(bytes(pkt)[26], bytes(pkt)[27], bytes(pkt)[28], bytes(pkt)[29]))
@@ -139,7 +147,8 @@ def print_IPv4(pkt):  # Vypísanie IP adries pre IPv4 protokol a protokol v ňom
             all_addresses[bytes(pkt)[30: 34]] = 1
 
 
-def ethertype(pkt):  # Zistí ethertype ethernetu
+# Zistí ethertype ethernetu
+def ethertype(pkt):
     global ethernet
     if int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16) in ethernet.keys():
         print(ethernet.get(int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16)), end='')
@@ -149,7 +158,8 @@ def ethertype(pkt):  # Zistí ethertype ethernetu
         print("Unknown Ethertype")
 
 
-def snap_type(pkt):  # Zistí ethertype SNAP-u
+# Zistí ethertype SNAP-u
+def snap_type(pkt):
     global ethernet
     if int(str(hexlify(bytes(pkt))[40: 44])[2: -1], 16) in ethernet.keys():
         print(ethernet.get(int(str(hexlify(bytes(pkt))[40: 44])[2: -1], 16)), end='')
@@ -157,7 +167,8 @@ def snap_type(pkt):  # Zistí ethertype SNAP-u
         print("Unknown Ethertype")
 
 
-def ieee_type(pkt):  # Zistí SAP ieee
+# Zistí SAP ieee
+def ieee_type(pkt):
     global ieee
     if int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16) in ieee.keys():
         print(ieee.get(int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16)), end='')
@@ -165,7 +176,8 @@ def ieee_type(pkt):  # Zistí SAP ieee
         print("Unknown type of IEEE", end='')
 
 
-def inner_protocol(pkt):  # Zistí vnútorný protokol
+# Zistí vnútorný protokol
+def inner_protocol(pkt):
     global ethernet
     global ieee
     if int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16) > 1500:
@@ -180,7 +192,8 @@ def inner_protocol(pkt):  # Zistí vnútorný protokol
         print("Unknown protocol", end='')
 
 
-def list_of_IP():  # Vypíše všetky jedinečné IP adresy
+# Vypíše všetky jedinečné IP adresy
+def list_of_IP():
     print("\n\nZoznam IP adries všetkých prijímajúcich uzlov:")
     global all_addresses
     for address in all_addresses:
@@ -192,7 +205,8 @@ def list_of_IP():  # Vypíše všetky jedinečné IP adresy
                                             bytes(most_used)[3], all_addresses[most_used]))
 
 
-def print_info(pkt):  # Vypíše informácie o jednom pakete
+# Vypíše informácie o jednom pakete
+def print_info(pkt):
     lengths(pkt)
     type_of_packet(pkt)
     mac_addresses(pkt)
@@ -200,7 +214,8 @@ def print_info(pkt):  # Vypíše informácie o jednom pakete
     printing_packet(pkt)
 
 
-def all_packets(raw_data):  # Vypíše všetky údaje potrebné pre 1., 2. a 3. bod zadania
+# Vypíše všetky údaje potrebné pre 1., 2. a 3. bod zadania
+def all_packets(raw_data):
     counter = 1
     global all_addresses
     all_addresses.clear()
@@ -211,6 +226,7 @@ def all_packets(raw_data):  # Vypíše všetky údaje potrebné pre 1., 2. a 3. 
     list_of_IP()
 
 
+# Výpis jedného rámca pre bod 4 zo zadania
 def print_comms(raw_data, i, protocol):
     print("Rámec ", i + 1)
     lengths(raw_data[i])
@@ -225,6 +241,7 @@ def print_comms(raw_data, i, protocol):
     print("\n")
 
 
+# Výpis TCP komunikácií -> prvej nekompletnej a jednej kompletnej
 def tcp_print(raw_data, comms, protocol):
     complete = 0
     incomplete = 0
@@ -266,29 +283,25 @@ def tcp_print(raw_data, comms, protocol):
         print("Kompletná komunikácia sa tu nenachádza")
 
 
+# Zistenie flagu, ktorý sa využíva v tcp_comms
 def flag_function(raw_data, comm, number):
     ihl = int(str(hexlify(bytes(raw_data[comm.arr_coms[number]]))[29:30])[2: -1]) * 4
     return bytes(raw_data[comm.arr_coms[number]])[27 + ihl]
 
 
+# Označovanie kompletných a nekompletných komunikácií
 def tcp_comms(raw_data, comms, protocol):
     for comm in comms:
         if len(comm.arr_coms) < 3:
             continue
-        # print("-------------------------------------------------")
         flag1 = flag_function(raw_data, comm, 0)
         flag2 = flag_function(raw_data, comm, 1)
         flag3 = flag_function(raw_data, comm, 2)
         if flag1 == 2 and flag2 == 18 and flag3 == 16:  # 3-way SYN handshake
-            # print("zaciatok")
             comm.complete = 0
-        else:
-            # print("bullshit")
-            continue
 
         flag = flag_function(raw_data, comm, -1)
         if flag == 4 or flag == 20:  # RST ukoncenie, RST+ACK
-            # print("RST ukoncenie")
             comm.complete = 1
             continue
 
@@ -297,15 +310,14 @@ def tcp_comms(raw_data, comms, protocol):
         flag3 = flag_function(raw_data, comm, -2)
         flag4 = flag_function(raw_data, comm, -1)
         if flag1 == 17 and flag2 == 16 and flag3 == 17 and flag4 == 16:  # 4-way FIN
-            # print("4-way FIN")
             comm.complete = 1
             continue
         if flag2 == 17 and flag3 == 17 and flag4 == 16:  # 3-way FIN
             comm.complete = 1
-            # print("3-way FIN")
     tcp_print(raw_data, comms, protocol)
 
 
+# Zgrupovanie TCP protokolov do daných komunikácii
 def tcp_together(raw_data, spec_packets, protocol):
     comms = []
     for i in range(len(spec_packets)):
@@ -336,6 +348,7 @@ def tcp_together(raw_data, spec_packets, protocol):
     tcp_comms(raw_data, comms, protocol)
 
 
+# Analýza komunikácie TCP protokolov -> vysortovanie daných protokolov
 def tcp(raw_data, protocol):
     global tcp_ports
     spec_packets = []
