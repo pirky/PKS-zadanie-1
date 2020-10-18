@@ -7,9 +7,9 @@ ieee = {}  # Dictionary s info o aky typ IEEE ide
 ethernet = {}  # Dictionary s info o aky typ Ethernetu ide
 ipv4 = {}  # Dictionary s info o aky protokol v IPv4 ide
 tcp_ports = {}  # Dictionary s info o aky well-known tcp port ide
-all_addresses = {}  # Dictionary so vsetkymi DIP adresami
 udp_ports = {}  # Dictionary s info o aky well-known udp port ide
 icmp_types = {}   # Dictionary s info o aky type ide
+all_addresses = {}  # Dictionary so vsetkymi DIP adresami
 
 
 # Trieda s informáciami potrebnými pre analýzu komunikácie TCP protokolov
@@ -57,7 +57,6 @@ def load_dictionaries():
     global ipv4
     global udp_ports
     global icmp_types
-    global arp_operation
     file = open("eth_ieee.txt", "r")
     for line in file:
         arr = line.split(":")
@@ -157,7 +156,7 @@ def print_IPv4(pkt):
 def ethertype(pkt):
     global ethernet
     if int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16) in ethernet.keys():
-        print(ethernet.get(int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16)), end='')
+        print(ethernet.get(int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16)))
         if int(str(hexlify(bytes(pkt))[24: 28])[2: -1], 16) == 2048:
             print_IPv4(pkt)
     else:
@@ -168,7 +167,7 @@ def ethertype(pkt):
 def snap_type(pkt):
     global ethernet
     if int(str(hexlify(bytes(pkt))[40: 44])[2: -1], 16) in ethernet.keys():
-        print(ethernet.get(int(str(hexlify(bytes(pkt))[40: 44])[2: -1], 16)), end='')
+        print(ethernet.get(int(str(hexlify(bytes(pkt))[40: 44])[2: -1], 16)))
     else:
         print("Unknown Ethertype")
 
@@ -177,7 +176,7 @@ def snap_type(pkt):
 def ieee_type(pkt):
     global ieee
     if int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16) in ieee.keys():
-        print(ieee.get(int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16)), end='')
+        print(ieee.get(int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16)))
     else:
         print("Unknown type of IEEE", end='')
 
@@ -195,7 +194,7 @@ def inner_protocol(pkt):
     elif int(str(hexlify(bytes(pkt))[28: 30])[2: -1], 16) < 256:
         ieee_type(pkt)
     else:
-        print("Unknown protocol", end='')
+        print("Unknown protocol")
 
 
 # Vypíše všetky jedinečné IP adresy
@@ -451,7 +450,12 @@ def icmp(raw_data, protocol):
 
 # Výpis jednéj ARP komunikácie
 def arp_print(raw_data, comm):
+    counter = 0
     for i in comm.arr_comms:
+        if len(comm.arr_comms) > 20 and 9 < counter < len(comm.arr_comms) - 10:
+            counter += 1
+            continue
+        counter += 1
         operation = int.from_bytes(bytes(raw_data[i])[20: 22], byteorder='big')
         if operation == 2 and i != comm.arr_comms[0]:
             print("ARP-Reply, IP adresa: {}.{}.{}.{}, MAC adresa: ".format
@@ -477,6 +481,8 @@ def arp_comms_print(raw_data, comms):
     counter = 1
     for comm in comms:
         print("Komunikácia {}:".format(counter))
+        if len(comm.arr_comms) > 20:
+            print("\nVýpis v skrátenej forme iba prvých 10 a posledných 10 rámcov\n")
         operation = int.from_bytes(bytes(raw_data[comm.arr_comms[0]])[20: 22], byteorder='big')
         if operation == 1:
             print("ARP-Request, IP adresa: {}.{}.{}.{}, MAC adresa: ???".format
@@ -535,26 +541,27 @@ def arp(raw_data):
 
 def start():
     load_dictionaries()
+    tcp_protocols = ["http", "https", "telnet", "ssh", "ftp-control", "ftp-data"]
     # path_file = input("Zadaj cestu k .pcap súboru: ")
-    path_file = "vzorky_pcap_na_analyzu/trace-2.pcap"
+    path_file = "vzorky_pcap_na_analyzu/trace-27.pcap"
     raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
     command = 1
     # command = int(input("Stlač:\t1 pre výstup do konzoly\n\t\t2 pre výstup do súboru\n"))
     if command == 2:
         sys.stdout = file_out
-    #    print("""Pre daný výpis napíš:
-    #    all - pre zobrazenie všetkých rámcov a jedinečných IP adries
-    #    http - pre výpis HTTP komunikácie
-    #    https - pre výpis HTTPS komunikácie
-    #    telnet - pre výpis TELNET komunikácie
-    #    ssh - pre výpis SSH komunikácie
-    #    ftp-control - pre výpis FTP riadiace komunikácie
-    #    ftp-data - pre výpis FTP dátové komunikácie
-    #    tftp - pre výpis TFTP komunikácie
-    #    icmp - pre výpis ICMP komunikácie
-    #    arp - pre výpis ARP dvojíc komunikácie""")
-    #    option = input()
+    print("""Pre daný výpis napíš:
+        all - pre zobrazenie všetkých rámcov a jedinečných IP adries
+        http - pre výpis HTTP komunikácie
+        https - pre výpis HTTPS komunikácie
+        telnet - pre výpis TELNET komunikácie
+        ssh - pre výpis SSH komunikácie
+        ftp-control - pre výpis FTP riadiace komunikácie
+        ftp-data - pre výpis FTP dátové komunikácie
+        tftp - pre výpis TFTP komunikácie
+        icmp - pre výpis ICMP komunikácie
+        arp - pre výpis ARP dvojíc komunikácie""")
+    # option = input()
     option = "arp"
     if option == "all":
         all_packets(raw_data)
@@ -564,7 +571,7 @@ def start():
         icmp(raw_data, option)
     elif option == "arp":
         arp(raw_data)
-    else:
+    elif option in tcp_protocols:
         tcp(raw_data, option)
     file_out.close()
 
