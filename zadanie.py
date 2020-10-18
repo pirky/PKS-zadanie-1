@@ -238,6 +238,7 @@ def print_comms(raw_data, i, protocol):
     type_of_packet(raw_data[i])
     mac_addresses(raw_data[i])
     inner_protocol(raw_data[i])
+    print()
     print(protocol.upper())
     ihl = int(str(hexlify(bytes(raw_data[i]))[29:30])[2: -1]) * 8
     print("zdrojový port: ", int(hexlify(bytes(raw_data[i]))[28 + ihl: 32 + ihl], 16))
@@ -430,7 +431,7 @@ def tftp(raw_data, protocol):
 
 
 # Analýza ICMP komunikácie spolu s jej výpisom
-def icmp(raw_data, protocol):
+def icmp(raw_data):
     global icmp_types
     position = 0
     for pkt in raw_data:
@@ -439,8 +440,9 @@ def icmp(raw_data, protocol):
             lengths(pkt)
             type_of_packet(pkt)
             mac_addresses(pkt)
+            ethertype(pkt)
             ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
-            print(protocol.upper(), "->", icmp_types[bytes(pkt)[14 + int(ihl/2)]])
+            print(" ->", icmp_types[bytes(pkt)[14 + int(ihl/2)]])
             print("zdrojový port: ", int(hexlify(bytes(pkt))[28 + ihl: 32 + ihl], 16))
             print("cieľový port: ", int(hexlify(bytes(pkt))[32 + ihl: 36 + ihl], 16))
             printing_packet(pkt)
@@ -542,14 +544,9 @@ def arp(raw_data):
 def start():
     load_dictionaries()
     tcp_protocols = ["http", "https", "telnet", "ssh", "ftp-control", "ftp-data"]
-    # path_file = input("Zadaj cestu k .pcap súboru: ")
-    path_file = "vzorky_pcap_na_analyzu/trace-27.pcap"
+    path_file = input("Zadaj cestu k pcap súboru: ")
     raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
-    command = 1
-    # command = int(input("Stlač:\t1 pre výstup do konzoly\n\t\t2 pre výstup do súboru\n"))
-    if command == 2:
-        sys.stdout = file_out
     print("""Pre daný výpis napíš:
         all - pre zobrazenie všetkých rámcov a jedinečných IP adries
         http - pre výpis HTTP komunikácie
@@ -561,14 +558,16 @@ def start():
         tftp - pre výpis TFTP komunikácie
         icmp - pre výpis ICMP komunikácie
         arp - pre výpis ARP dvojíc komunikácie""")
-    # option = input()
-    option = "arp"
+    option = input()
+    command = int(input("Stlač:\t1 pre výstup do konzoly\n\t\t2 pre výstup do súboru\n"))
+    if command == 2:
+        sys.stdout = file_out
     if option == "all":
         all_packets(raw_data)
     elif option == "tftp":
         tftp(raw_data, option)
     elif option == "icmp":
-        icmp(raw_data, option)
+        icmp(raw_data)
     elif option == "arp":
         arp(raw_data)
     elif option in tcp_protocols:
