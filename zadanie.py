@@ -10,7 +10,6 @@ tcp_ports = {}  # Dictionary s info o aky well-known tcp port ide
 all_addresses = {}  # Dictionary so vsetkymi DIP adresami
 udp_ports = {}  # Dictionary s info o aky well-known udp port ide
 icmp_types = {}   # Dictionary s info o aky type ide
-arp_operation = {}  # Dictionary s info a aku operaciu v ARP ide
 
 
 # Trieda s informáciami potrebnými pre analýzu komunikácie TCP protokolov
@@ -37,6 +36,18 @@ class StructureTftp:
 
     def add_pkt(self, number):
         self.arr_coms.append(number)
+
+
+class StructureArp:
+    def __init__(self, mac, src_ip, tgt_ip, operation):
+        self.mac = mac
+        self.src_ip = src_ip
+        self.tgt_ip = tgt_ip
+        self.operation = operation
+        self.arr_comms = []
+
+    def add_pkt(self, number):
+        self.arr_comms.append(number)
 
 
 # Načítanie zo súboru ethernet, ieee typov a ipv4 protokolov
@@ -74,11 +85,6 @@ def load_dictionaries():
     for line in file:
         arr = line.split(":")
         icmp_types[int(arr[0])] = arr[1][:-1]
-    file.close()
-    file = open("arp.txt", "r")
-    for line in file:
-        arr = line.split(":")
-        arp_operation[int(arr[0])] = arr[1][:-1]
     file.close()
 
 
@@ -345,6 +351,7 @@ def tcp_together(raw_data, spec_packets, protocol):
                 pkt = Structure(2, sip, sport, dip, dport)
                 comms.append(pkt)
                 pkt.add_pkt(spec_packets[i])
+    print()
     tcp_comms(raw_data, comms, protocol)
 
 
@@ -363,6 +370,7 @@ def tcp(raw_data, protocol):
     tcp_together(raw_data, spec_packets, protocol)
 
 
+# Výpis TFTP komunikácií
 def tftp_print(raw_data, comms, protocol):
     position = 1
     for comm in comms:
@@ -385,6 +393,7 @@ def tftp_print(raw_data, comms, protocol):
         position += 1
 
 
+# Analýza TFTP komunikácie -> zgrupovanie komunikácií
 def tftp(raw_data, protocol):
     global udp_ports
     comms = []
@@ -421,6 +430,7 @@ def tftp(raw_data, protocol):
     tftp_print(raw_data, comms, protocol)
 
 
+# Analýza ICMP komunikácie spolu s jej výpisom
 def icmp(raw_data, protocol):
     global icmp_types
     position = 0
@@ -430,7 +440,7 @@ def icmp(raw_data, protocol):
             lengths(pkt)
             type_of_packet(pkt)
             mac_addresses(pkt)
-            ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1]) * 8
+            ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
             print(protocol.upper(), "->", icmp_types[bytes(pkt)[14 + int(ihl/2)]])
             print("zdrojový port: ", int(hexlify(bytes(pkt))[28 + ihl: 32 + ihl], 16))
             print("cieľový port: ", int(hexlify(bytes(pkt))[32 + ihl: 36 + ihl], 16))
@@ -439,10 +449,94 @@ def icmp(raw_data, protocol):
         position += 1
 
 
+# Výpis jednéj ARP komunikácie
+def arp_print(raw_data, comm):
+    for i in comm.arr_comms:
+        operation = int.from_bytes(bytes(raw_data[i])[20: 22], byteorder='big')
+        if operation == 2 and i != comm.arr_comms[0]:
+            print("ARP-Reply, IP adresa: {}.{}.{}.{}, MAC adresa: ".format
+                  (comm.tgt_ip[0], comm.tgt_ip[1], comm.tgt_ip[2], comm.tgt_ip[3]), end='')
+            for j in range(12):
+                if j % 2 == 0:
+                    print(" ", end='')
+                print(str(comm.mac[j: j + 1])[2: -1].upper(), end='')
+            print("\nZdrojová IP: {}.{}.{}.{}, Cieľová IP: {}.{}.{}.{}".format
+                  (comm.tgt_ip[0], comm.tgt_ip[1], comm.tgt_ip[2], comm.tgt_ip[3],
+                   comm.src_ip[0], comm.src_ip[1], comm.src_ip[2], comm.src_ip[3]))
+        print("Rámec", i + 1)
+        lengths(raw_data[i])
+        type_of_packet(raw_data[i])
+        print("ARP")
+        mac_addresses(raw_data[i])
+        printing_packet(raw_data[i])
+        print("\n")
+
+
+# Výpis ARP komunikácií
+def arp_comms_print(raw_data, comms):
+    counter = 1
+    for comm in comms:
+        print("Komunikácia {}:".format(counter))
+        operation = int.from_bytes(bytes(raw_data[comm.arr_comms[0]])[20: 22], byteorder='big')
+        if operation == 1:
+            print("ARP-Request, IP adresa: {}.{}.{}.{}, MAC adresa: ???".format
+                  (comm.tgt_ip[0], comm.tgt_ip[1], comm.tgt_ip[2], comm.tgt_ip[3]))
+            print("Zdrojová IP: {}.{}.{}.{}, Cieľová IP: {}.{}.{}.{}".format
+                  (comm.src_ip[0], comm.src_ip[1], comm.src_ip[2], comm.src_ip[3],
+                   comm.tgt_ip[0], comm.tgt_ip[1], comm.tgt_ip[2], comm.tgt_ip[3]))
+        elif operation == 2:
+            print("ARP-Reply, IP adresa: {}.{}.{}.{}, MAC adresa: ".format
+                  (comm.src_ip[0], comm.src_ip[1], comm.src_ip[2], comm.src_ip[3]), end='')
+            for i in range(12):
+                if i % 2 == 0:
+                    print(" ", end='')
+                print(str(comm.mac[i: i + 1])[2: -1].upper(), end='')
+            print("\nZdrojová IP: {}.{}.{}.{}, Cieľová IP: {}.{}.{}.{}".format
+                  (comm.src_ip[0], comm.src_ip[1], comm.src_ip[2], comm.src_ip[3],
+                   comm.tgt_ip[0], comm.tgt_ip[1], comm.tgt_ip[2], comm.tgt_ip[3]))
+        arp_print(raw_data, comm)
+        counter += 1
+
+    # src_hw_addr = "001123655666656"
+    # for i in range(len(src_hw_addr)):
+    #    print(str(src_hw_addr[i: i + 1])[2: -1].upper(), end='')
+    #    if i % 2 == 1 and i != 0:
+    #        print(" ", end='')
+    # print()
+
+
+# Analýza ARP komunikácie -> rozdelenie dvojíc komunikácie
+def arp(raw_data):
+    position = 0
+    comms = []
+    for pkt in raw_data:
+        added = 0
+        if str(hexlify(bytes(pkt))[24: 28])[2: -1] == "0806":
+            operation = int.from_bytes(bytes(pkt)[20: 22], byteorder='big')
+            src_mac = hexlify(bytes(pkt)[22: 28])
+            src_ip = bytes(pkt)[28: 32]
+            tgt_mac = hexlify(bytes(pkt)[32: 38])
+            tgt_ip = bytes(pkt)[38: 42]
+            for comm in comms:
+                if comm.operation == 1 and comm.src_ip == src_ip and comm.tgt_ip == tgt_ip and comm.mac == src_mac:
+                    comm.add_pkt(position)
+                    added = 1
+                elif comm.operation == 1 and comm.src_ip == tgt_ip and comm.tgt_ip == src_ip and comm.mac == tgt_mac:
+                    comm.add_pkt(position)
+                    comm.mac = src_mac
+                    comm.operation = operation
+                    added = 1
+            if added == 0:
+                comms.append(StructureArp(src_mac, src_ip, tgt_ip, operation))
+                comms[-1].add_pkt(position)
+        position += 1
+    arp_comms_print(raw_data, comms)
+
+
 def start():
     load_dictionaries()
     # path_file = input("Zadaj cestu k .pcap súboru: ")
-    path_file = "vzorky_pcap_na_analyzu/eth-2.pcap"
+    path_file = "vzorky_pcap_na_analyzu/trace-2.pcap"
     raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
     command = 1
@@ -461,7 +555,7 @@ def start():
     #    icmp - pre výpis ICMP komunikácie
     #    arp - pre výpis ARP dvojíc komunikácie""")
     #    option = input()
-    option = "all"
+    option = "arp"
     if option == "all":
         all_packets(raw_data)
     elif option == "tftp":
@@ -469,7 +563,7 @@ def start():
     elif option == "icmp":
         icmp(raw_data, option)
     elif option == "arp":
-        print("arp")
+        arp(raw_data)
     else:
         tcp(raw_data, option)
     file_out.close()
