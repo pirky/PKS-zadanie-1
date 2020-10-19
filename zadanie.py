@@ -8,7 +8,7 @@ ethernet = {}  # Dictionary s info o aky typ Ethernetu ide
 ipv4 = {}  # Dictionary s info o aky protokol v IPv4 ide
 tcp_ports = {}  # Dictionary s info o aky well-known tcp port ide
 udp_ports = {}  # Dictionary s info o aky well-known udp port ide
-icmp_types = {}   # Dictionary s info o aky type ide
+icmp_types = {}  # Dictionary s info o aky type ide
 all_addresses = {}  # Dictionary so vsetkymi DIP adresami
 
 
@@ -398,7 +398,7 @@ def tftp(raw_data, protocol):
     global udp_ports
     comms = []
     position = 0
-    running_comm = 0    # 0 -> nebeži, 1 -> beži, 2 -> ACK a končí
+    running_comm = 0  # 0 -> nebeži, 1 -> beži, 2 -> ACK a končí
     first = 1
     comm_length = 0
     for pkt in raw_data:
@@ -442,7 +442,7 @@ def icmp(raw_data):
             mac_addresses(pkt)
             ethertype(pkt)
             ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
-            print(" ->", icmp_types[bytes(pkt)[14 + int(ihl/2)]])
+            print(" ->", icmp_types[bytes(pkt)[14 + int(ihl / 2)]])
             print("zdrojový port: ", int(hexlify(bytes(pkt))[28 + ihl: 32 + ihl], 16))
             print("cieľový port: ", int(hexlify(bytes(pkt))[32 + ihl: 36 + ihl], 16))
             printing_packet(pkt)
@@ -541,10 +541,25 @@ def arp(raw_data):
     arp_comms_print(raw_data, comms)
 
 
+def rip(raw_data, protocol):
+    position = 0
+    counter = 0
+    for pkt in raw_data:
+        ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
+        if str(hexlify(bytes(pkt))[24: 28])[2: -1] == "0800" and str(hexlify(bytes(pkt))[46: 48])[2: -1] == "11" and \
+                str(hexlify(bytes(pkt))[32 + ihl: 36 + ihl])[2: -1] == udp_ports[protocol]:
+            print_comms(raw_data, position, protocol)
+            counter += 1
+        position += 1
+
+    print("V súbore je dokopy {} rip rámcov.".format(counter))
+
+
 def start():
     load_dictionaries()
     tcp_protocols = ["http", "https", "telnet", "ssh", "ftp-control", "ftp-data"]
-    path_file = input("Zadaj cestu k pcap súboru: ")
+    # path_file = input("Zadaj cestu k pcap súboru: ")
+    path_file = "vzorky_pcap_na_analyzu/trace-27.pcap"
     raw_data = rdpcap(path_file)
     file_out = open("output.txt", "w")
     print("""Pre daný výpis napíš:
@@ -557,9 +572,12 @@ def start():
         ftp-data - pre výpis FTP dátové komunikácie
         tftp - pre výpis TFTP komunikácie
         icmp - pre výpis ICMP komunikácie
-        arp - pre výpis ARP dvojíc komunikácie""")
-    option = input()
-    command = int(input("Stlač:\t1 pre výstup do konzoly\n\t\t2 pre výstup do súboru\n"))
+        arp - pre výpis ARP dvojíc komunikácie
+        rip - pre doimplementačnú úlohu""")
+    # option = input()
+    option = "rip"
+    # command = int(input("Stlač:\t1 pre výstup do konzoly\n\t\t2 pre výstup do súboru\n"))
+    command = 1
     if command == 2:
         sys.stdout = file_out
     if option == "all":
@@ -570,6 +588,8 @@ def start():
         icmp(raw_data)
     elif option == "arp":
         arp(raw_data)
+    elif option == "rip":
+        rip(raw_data, option)
     elif option in tcp_protocols:
         tcp(raw_data, option)
     file_out.close()
