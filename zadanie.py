@@ -311,15 +311,17 @@ def tcp_comms(raw_data, comms, protocol):
             comm.complete = 1
             continue
 
-        flag1 = flag_function(raw_data, comm, -4)
-        flag2 = flag_function(raw_data, comm, -3)
-        flag3 = flag_function(raw_data, comm, -2)
-        flag4 = flag_function(raw_data, comm, -1)
-        if flag1 == 17 and flag2 == 16 and flag3 == 17 and flag4 == 16:  # 4-way FIN
-            comm.complete = 1
-            continue
-        if flag2 == 17 and flag3 == 17 and flag4 == 16:  # 3-way FIN
-            comm.complete = 1
+        if len(comm.arr_coms) > 4:
+            flag1 = flag_function(raw_data, comm, -4)
+            flag2 = flag_function(raw_data, comm, -3)
+            flag3 = flag_function(raw_data, comm, -2)
+            flag4 = flag_function(raw_data, comm, -1)
+            if flag1 == 17 and flag2 == 16 and flag3 == 17 and flag4 == 16:  # 4-way FIN
+                comm.complete = 1
+                continue
+            if flag2 == 17 and flag3 == 17 and flag4 == 16:  # 3-way FIN
+                comm.complete = 1
+    print()
     tcp_print(raw_data, comms, protocol)
 
 
@@ -443,8 +445,6 @@ def icmp(raw_data):
             ethertype(pkt)
             ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
             print(" ->", icmp_types[bytes(pkt)[14 + int(ihl / 2)]])
-            print("zdrojový port: ", int(hexlify(bytes(pkt))[28 + ihl: 32 + ihl], 16))
-            print("cieľový port: ", int(hexlify(bytes(pkt))[32 + ihl: 36 + ihl], 16))
             printing_packet(pkt)
             print("\n")
         position += 1
@@ -547,7 +547,8 @@ def rip(raw_data, protocol):
     for pkt in raw_data:
         ihl = int(str(hexlify(bytes(pkt))[29:30])[2: -1], 16) * 8
         if str(hexlify(bytes(pkt))[24: 28])[2: -1] == "0800" and str(hexlify(bytes(pkt))[46: 48])[2: -1] == "11" and \
-                str(hexlify(bytes(pkt))[32 + ihl: 36 + ihl])[2: -1] == udp_ports[protocol]:
+                str(hexlify(bytes(pkt))[32 + ihl: 36 + ihl])[2: -1] == udp_ports[protocol] or \
+                str(hexlify(bytes(pkt))[28 + ihl: 32 + ihl])[2: -1] == udp_ports[protocol]:
             print_comms(raw_data, position, protocol)
             counter += 1
         position += 1
